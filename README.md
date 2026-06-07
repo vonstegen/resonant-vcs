@@ -158,4 +158,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 **Status:** 🟡 Planning — Join us in building version control for everyone!
 
+[![GitHub](https://img.shields.io/badge/GitHub-ResonantVCS-blue.svg)](https://github.com/vonstegen/resonant-vcs)
 [![Discord](https://img.shields.io/badge/Discord-Join-blue.svg)](https://discord.gg/resonantdao)
