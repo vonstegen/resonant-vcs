@@ -132,6 +132,40 @@ async def get_status(path: str):
     status = repo.status()
     return StatusResponse(**status)
 
+class FileItem(BaseModel):
+    name: str
+    path: str
+    type: str  # 'file' or 'folder'
+    size: Optional[int] = None
+
+@app.get("/repositories/{path}/files")
+async def list_files(path: str):
+    """List all files in the repository."""
+    repo = get_repo(path)
+    repo_path = repo.path
+    files = []
+    
+    try:
+        for item in repo_path.iterdir():
+            if item.name.startswith('.') and item.name != '.avcs':
+                continue
+            if item.name == '.avcs':
+                continue
+            
+            stat = item.stat()
+            files.append({
+                "name": item.name,
+                "path": str(item.relative_to(repo_path)),
+                "type": "folder" if item.is_dir() else "file",
+                "size": stat.st_size if item.is_file() else None
+            })
+        
+        # Sort: folders first, then files, alphabetically
+        files.sort(key=lambda x: (x["type"] == "file", x["name"]))
+        return files
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/repositories/{path}/add")
 async def add_files(path: str, req: AddRequest, background: BackgroundTasks):
     """Stage files for commit."""

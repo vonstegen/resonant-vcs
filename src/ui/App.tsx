@@ -4,7 +4,7 @@ import {
   File, FileText, Save, ChevronRight, RefreshCw, Upload, 
   ArrowLeft, ArrowRight, Search, Settings, Check, FolderInput
 } from 'lucide-react';
-import { api, Version, Change } from './api';
+import { api, Version, Change, FileItem } from './api';
 
 // Types
 
@@ -16,6 +16,7 @@ function App() {
   const [commits, setCommits] = useState<Version[]>([]);
   const [loading, setLoading] = useState(false);
   const [changes, setChanges] = useState<Change[]>([]);
+  const [files, setFiles] = useState<FileItem[]>([]);
   const [commitMessage, setCommitMessage] = useState('');
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
@@ -38,13 +39,14 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const [, logData, diffData] = await Promise.all([
-        api.getStatus().catch(() => null),
+      const [logData, diffData, fileData] = await Promise.all([
         api.getLog(20).catch(() => []),
         api.getDiff().catch(() => ({ changes: [] })),
+        api.getFiles().catch(() => []),
       ]);
       setChanges(diffData.changes);
       setCommits(logData);
+      setFiles(fileData);
     } catch (err) {
       setError('Could not load data');
     }
@@ -276,30 +278,31 @@ function App() {
           {/* File List */}
           <div className="file-list">
             {viewMode === 'explorer' ? (
-              // Explorer view - show all changes as files
-              changes.length === 0 ? (
+              // Explorer view - show all files in repository
+              files.length === 0 ? (
                 <div className="empty-folder">
                   <FolderIcon size={48} />
-                  <p>This folder is empty</p>
-                  <p className="hint">Make some changes to your files and they'll appear here</p>
+                  <p>This repository is empty</p>
+                  <p className="hint">Add some files to get started</p>
                 </div>
               ) : (
-                changes.map(change => (
+                files.map(file => (
                   <div 
-                    key={change.path}
-                    className={`file-row ${selectedItems.has(change.path) ? 'selected' : ''}`}
-                    onClick={(e) => handleMultiSelect(change.path, e)}
-                    onDoubleClick={() => setSelectedFile(change.path)}
+                    key={file.path}
+                    className={`file-row ${selectedItems.has(file.path) ? 'selected' : ''}`}
+                    onClick={(e) => handleMultiSelect(file.path, e)}
                   >
                     <div className="col-name">
-                      {getFileIcon(change.path.split('/').pop() || '', 'file')}
-                      <span className="file-name">{change.path}</span>
+                      {getFileIcon(file.name, file.type as 'file' | 'folder')}
+                      <span className="file-name">{file.name}</span>
                     </div>
                     <div className="col-status">
-                      {getChangeIcon(change.type)}
-                      <span className={`status-badge ${change.type}`}>{change.type}</span>
+                      {getChangeIcon(changes.find(c => c.path === file.path)?.type || 'unchanged')}
+                      <span className={`status-badge ${changes.find(c => c.path === file.path)?.type || 'unchanged'}`}>
+                        {changes.find(c => c.path === file.path)?.type || 'unchanged'}
+                      </span>
                     </div>
-                    <div className="col-date">Today</div>
+                    <div className="col-date">{file.size ? `${(file.size / 1024).toFixed(1)} KB` : '—'}</div>
                   </div>
                 ))
               )

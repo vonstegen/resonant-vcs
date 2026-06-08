@@ -28,6 +28,13 @@ interface Change {
   type: 'added' | 'modified' | 'deleted';
 }
 
+interface FileItem {
+  name: string;
+  path: string;
+  type: 'file' | 'folder';
+  size: number | null;
+}
+
 class ApiClient {
   private repoPath: string = '';
 
@@ -67,6 +74,10 @@ class ApiClient {
 
   async getDiff(): Promise<{ changes: Change[] }> {
     return this.request<{ changes: Change[] }>(`/repositories/${this.repoPath}/diff`);
+  }
+
+  async getFiles(): Promise<FileItem[]> {
+    return this.request<FileItem[]>(`/repositories/${this.repoPath}/files`);
   }
 
   async addFiles(files: string[]): Promise<{ staged: string[]; count: number }> {
@@ -137,4 +148,4 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
-export type { Version, Branch, Status, Change };
+export type { Version, Branch, Status, Change, FileItem };
