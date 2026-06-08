@@ -312,6 +312,135 @@ def restore(file: str | None, all_files: bool):
         console.print(f"[red]Error: {e}[/red]")
 
 
+# AI Commands
+
+@cli.command()
+@click.option("--model", default=None, help="Model to use")
+def ai_status(model: str | None):
+    """Check AI provider status."""
+    from ..ai.switcher import AISwitcher, AIConfig
+    
+    switcher = AISwitcher()
+    status = switcher.get_status()
+    
+    table = Table(title="AI Provider Status")
+    table.add_column("Provider", style="cyan")
+    table.add_column("Available", style="green")
+    table.add_column("Model")
+    
+    for name, info in status.items():
+        available = "✓" if info["available"] else "✗"
+        model_name = info.get("model", "-")
+        table.add_row(name, available, model_name)
+    
+    console.print(table)
+    
+    if not switcher.is_available():
+        console.print("\n[yellow]No AI providers available. Install Ollama to enable AI features.[/yellow]")
+        console.print("[dim]Install: curl -fsSL https://ollama.com/install.sh | sh[/dim]")
+
+
+@cli.command()
+def suggest():
+    """Suggest a commit message based on staged changes."""
+    from ..ai.features import CommitSuggester
+    
+    repo = get_repo()
+    status = repo.status()
+    staged = status.get("staged", [])
+    
+    if not staged:
+        console.print("[yellow]No files staged. Stage files first with 'avcs add'[/yellow]")
+        return
+    
+    suggester = CommitSuggester()
+    suggestion = suggester.suggest(staged)
+    
+    console.print(f"\n[bold]Suggested commit message:[/bold]")
+    console.print(f"[cyan]{suggestion}[/cyan]")
+
+
+@cli.command()
+def explain():
+    """Explain changes in plain language."""
+    from ..ai.features import ChangesSummarizer
+    
+    repo = get_repo()
+    changes = repo.diff_staged()
+    
+    if not changes:
+        console.print("[yellow]No changes to explain[/yellow]")
+        return
+    
+    summarizer = ChangesSummarizer()
+    explanation = summarizer.summarize(changes)
+    
+    console.print(f"\n[bold]What changed:[/bold]")
+    console.print(explanation)
+
+
+@cli.command()
+@click.option("-n", "--count", default=10, help="Number of versions to include")
+def story(count: int):
+    """Tell version history as a story."""
+    from ..ai.features import VersionNarrator
+    
+    repo = get_repo()
+    versions = repo.log(count)
+    
+    if not versions:
+        console.print("[yellow]No version history yet[/yellow]")
+        return
+    
+    version_dicts = [
+        {
+            "id": v.id[:8],
+            "message": v.message,
+            "date": v.created_at.strftime("%Y-%m-%d")
+        }
+        for v in versions
+    ]
+    
+    narrator = VersionNarrator()
+    story = narrator.narrate_versions(version_dicts, count)
+    
+    console.print(f"\n[bold]Project Story:[/bold]\n")
+    console.print(story)
+
+
+@cli.command()
+def chat():
+    """Start conversational AI assistant."""
+    from .conversational import run_conversational
+    run_conversational()
+
+
+@cli.command()
+@click.argument("text")
+def ai(text: str):
+    """Process natural language VCS command."""
+    from ..ai.intent import IntentClassifier, IntentMapper
+    
+    repo = get_repo()
+    classifier = IntentClassifier()
+    mapper = IntentMapper(repo)
+    
+    parsed = classifier.classify(text)
+    
+    if parsed.confidence < 0.3:
+        console.print(f"[yellow]I'm not sure what you mean by '{text}'[/yellow]")
+        if parsed.suggestion:
+            console.print(f"[dim]Try: {parsed.suggestion}[/dim]")
+        return
+    
+    result = mapper.execute(parsed)
+    
+    if result["success"]:
+        console.print(f"[green]✓ {result.get('message', 'Done')}[/green]")
+    else:
+        console.print(f"[red]✗ {result.get('message', 'Error')}[/red]")
+
+
 # Export the cli group as the main command
 main = cli
 
