@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { 
   Home, Folder as FolderIcon, FolderOpen as FolderOpenIcon, 
   File, FileText, Save, ChevronRight, RefreshCw, Upload, 
-  ArrowLeft, ArrowRight, Search, Settings, Check
+  ArrowLeft, ArrowRight, Search, Settings, Check, FolderInput
 } from 'lucide-react';
 import { api, Version, Change } from './api';
 
 // Types
 
 function App() {
+  const [repoPath, setRepoPath] = useState('/mnt/c/Users/andre/Documents/Developer/TEST-Repo-v01');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'explorer' | 'changes'>('explorer');
@@ -22,12 +23,16 @@ function App() {
   const [currentPath, setCurrentPath] = useState('/');
   const [history, setHistory] = useState<string[]>(['/']);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [showPathInput, setShowPathInput] = useState(false);
+  const [tempPath, setTempPath] = useState('');
 
-  // Load data on mount
+  // Load data when repo changes
   useEffect(() => {
-    api.setRepoPath('/tmp/avcs-test');
-    loadAll();
-  }, []);
+    if (repoPath) {
+      api.setRepoPath(repoPath);
+      loadAll();
+    }
+  }, [repoPath]);
 
   const loadAll = async () => {
     setLoading(true);
@@ -154,9 +159,12 @@ function App() {
           <button className="nav-btn" onClick={goForward} disabled={historyIndex >= history.length - 1}>
             <ArrowRight size={16} />
           </button>
+          <button className="folder-btn" onClick={() => { setTempPath(repoPath); setShowPathInput(true); }} title="Change Repository">
+            <FolderInput size={14} />
+          </button>
           <div className="path-bar">
             <Home size={14} />
-            <span>{currentPath}</span>
+            <span>{repoPath.split('/').pop()}</span>
           </div>
         </div>
         <div className="title-right">
@@ -403,6 +411,44 @@ function App() {
       {error && (
         <div className="error-toast" onClick={() => setError(null)}>
           {error}
+        </div>
+      )}
+
+      {/* Path Input Modal */}
+      {showPathInput && (
+        <div className="modal-overlay" onClick={() => setShowPathInput(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span>Open Repository</span>
+              <button className="modal-close" onClick={() => setShowPathInput(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <label>Repository Path:</label>
+              <input
+                type="text"
+                className="path-input"
+                value={tempPath}
+                onChange={(e) => setTempPath(e.target.value)}
+                placeholder="Enter repository path..."
+                autoFocus
+              />
+              <p className="path-hint">Example: /mnt/c/Users/you/project or ~/project</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowPathInput(false)}>Cancel</button>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  if (tempPath.trim()) {
+                    setRepoPath(tempPath.trim());
+                    setShowPathInput(false);
+                  }
+                }}
+              >
+                Open
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
