@@ -528,6 +528,44 @@ def serve(host: str, port: int):
     uvicorn.run(app, host=host, port=port)
 
 
+@cli.command()
+@click.option("--api-port", default=8000, help="API server port")
+@click.option("--ui-port", default=3000, help="UI server port")
+def ui(api_port: int, ui_port: int):
+    """Start the full web UI (API + Frontend)."""
+    import subprocess
+    import threading
+    import time
+    import uvicorn
+    from ..api.main import app
+    
+    # Start API server in background
+    api_thread = threading.Thread(target=lambda: uvicorn.run(app, host="127.0.0.1", port=api_port, log_level="error"))
+    api_thread.daemon = True
+    api_thread.start()
+    
+    console.print(f"[green]Starting AugmentedVCS Web UI...[/green]")
+    console.print(f"[dim]API server: http://localhost:{api_port}[/dim]")
+    time.sleep(1)  # Give API time to start
+    
+    # Check if frontend is installed
+    import os
+    frontend_dir = Path(__file__).parent.parent.parent.parent
+    package_json = frontend_dir / "package.json"
+    node_modules = frontend_dir / "node_modules"
+    
+    if node_modules.exists() and (frontend_dir / "index.html").exists():
+        console.print(f"[dim]Starting frontend on http://localhost:{ui_port}[/dim]")
+        console.print(f"[green]Open http://localhost:{ui_port} in your browser[/green]")
+        
+        # Start frontend dev server
+        subprocess.run(["npm", "run", "start"], cwd=str(frontend_dir), env={**os.environ, "PORT": str(ui_port)})
+    else:
+        console.print("[yellow]Frontend not installed. Installing...[/yellow]")
+        subprocess.run(["npm", "install"], cwd=str(frontend_dir))
+        console.print(f"[green]Run 'avcs ui' again to start the UI[/green]")
+
+
 # Export the cli group as the main command
 main = cli
 
