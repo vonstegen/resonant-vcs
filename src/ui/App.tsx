@@ -1,82 +1,58 @@
 import { useState, useEffect } from 'react';
 import { 
-  Plus, File, Folder, FolderOpen, 
-  FileText, Code, Image, Trash2, ChevronRight, ChevronDown,
-  Circle, GitMerge, Loader2
+  Home, Folder as FolderIcon, FolderOpen as FolderOpenIcon, 
+  File, FileText, Save, ChevronRight, RefreshCw, Upload, 
+  ArrowLeft, ArrowRight, Search, Settings, Check
 } from 'lucide-react';
-import { api, Version, Status, Change } from './api';
+import { api, Version, Change } from './api';
 
 // Types
-interface FileNode {
-  name: string;
-  type: 'file' | 'folder';
-  children?: FileNode[];
-  path: string;
-}
-
-// ViewMode type removed (unused)
-
-// Icons
-const Icons = {
-  File: () => <File size={16} />,
-  Folder: () => <Folder size={16} />,
-  FolderOpen: () => <FolderOpen size={16} />,
-  Text: () => <FileText size={16} />,
-  Code: () => <Code size={16} />,
-  Image: () => <Image size={16} />,
-  Trash: () => <Trash2 size={16} />,
-  Chevron: () => <ChevronRight size={14} />,
-  ChevronDown: () => <ChevronDown size={14} />,
-  Circle: () => <Circle size={12} />,
-  Merge: () => <GitMerge size={16} />,
-  Plus: () => <Plus size={16} />,
-  Loading: () => <Loader2 size={16} className="animate-spin" />,
-};
 
 function App() {
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'explorer' | 'changes'>('explorer');
+  const [commits, setCommits] = useState<Version[]>([]);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<Status | null>(null);
-  const [versions, setVersions] = useState<Version[]>([]);
   const [changes, setChanges] = useState<Change[]>([]);
   const [commitMessage, setCommitMessage] = useState('');
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [repoPath] = useState('/tmp/avcs-test');
   const [error, setError] = useState<string | null>(null);
+  const [currentPath, setCurrentPath] = useState('/');
+  const [history, setHistory] = useState<string[]>(['/']);
+  const [historyIndex, setHistoryIndex] = useState(0);
 
-  // Load data
+  // Load data on mount
   useEffect(() => {
-    api.setRepoPath(repoPath);
-    loadData();
+    api.setRepoPath('/tmp/avcs-test');
+    loadAll();
   }, []);
 
-  const loadData = async () => {
+  const loadAll = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [statusData, logData, diffData] = await Promise.all([
+      const [, logData, diffData] = await Promise.all([
         api.getStatus().catch(() => null),
-        api.getLog(30).catch(() => []),
+        api.getLog(20).catch(() => []),
         api.getDiff().catch(() => ({ changes: [] })),
       ]);
-      setStatus(statusData);
-      setVersions(logData);
       setChanges(diffData.changes);
+      setCommits(logData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load');
+      setError('Could not load data');
     }
     setLoading(false);
   };
 
-  const handleStageAll = async () => {
+  const handleAddAll = async () => {
     setLoading(true);
     try {
       await api.addFiles(['.']);
-      await loadData();
+      await loadAll();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Stage failed');
+      setError('Could not stage files');
     }
     setLoading(false);
   };
@@ -88,9 +64,9 @@ function App() {
       await api.commit(commitMessage);
       setCommitMessage('');
       setSuggestion(null);
-      await loadData();
+      await loadAll();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Commit failed');
+      setError('Could not save');
     }
     setLoading(false);
   };
@@ -104,191 +80,304 @@ function App() {
     setAiThinking(false);
   };
 
-  const toggleFolder = (path: string) => {
-    const newExpanded = new Set(expandedFolders);
-    if (newExpanded.has(path)) {
-      newExpanded.delete(path);
+  const handleMultiSelect = (path: string, event: React.MouseEvent) => {
+    if (event.ctrlKey || event.metaKey) {
+      const newSelected = new Set(selectedItems);
+      if (newSelected.has(path)) {
+        newSelected.delete(path);
+      } else {
+        newSelected.add(path);
+      }
+      setSelectedItems(newSelected);
     } else {
-      newExpanded.add(path);
+      const newSelected = new Set<string>();
+      newSelected.add(path);
+      setSelectedItems(newSelected);
+      setSelectedFile(path);
     }
-    setExpandedFolders(newExpanded);
   };
 
-  // Build file tree from changes
-  const buildFileTree = (): FileNode[] => {
-    const root: FileNode[] = [];
-    const pathMap = new Map<string, FileNode>();
-
-    changes.forEach(change => {
-      const parts = change.path.split('/');
-      let currentPath = '';
-      
-      parts.forEach((part, i) => {
-        currentPath = currentPath ? `${currentPath}/${part}` : part;
-        const isLast = i === parts.length - 1;
-        
-        if (!pathMap.has(currentPath)) {
-          const node: FileNode = {
-            name: part,
-            type: isLast ? 'file' : 'folder',
-            path: change.path,
-            children: isLast ? undefined : [],
-          };
-          pathMap.set(currentPath, node);
-          
-          if (i === 0) {
-            root.push(node);
-          } else {
-            const parentPath = parts.slice(0, i).join('/');
-            const parent = pathMap.get(parentPath);
-            if (parent?.children) {
-              parent.children.push(node);
-            }
-          }
-        }
-      });
-    });
-
-    return root;
+  const goBack = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setCurrentPath(history[newIndex]);
+    }
   };
 
-  const fileTree = buildFileTree();
+  const goForward = () => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setCurrentPath(history[newIndex]);
+    }
+  };
 
-  const getFileIcon = (name: string) => {
+  const navigateTo = (path: string) => {
+    setCurrentPath(path);
+    setHistory(prev => [...prev.slice(0, historyIndex + 1), path]);
+    setHistoryIndex(prev => prev + 1);
+  };
+
+  const getFileIcon = (name: string, type: 'file' | 'folder', expanded?: boolean) => {
+    if (type === 'folder') {
+      return expanded ? <FolderOpenIcon size={18} /> : <FolderIcon size={18} />;
+    }
     const ext = name.split('.').pop()?.toLowerCase();
-    if (['md', 'txt', 'doc', 'docx'].includes(ext || '')) return <Icons.Text />;
-    if (['js', 'ts', 'py', 'rs', 'go', 'java'].includes(ext || '')) return <Icons.Code />;
-    if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext || '')) return <Icons.Image />;
-    return <Icons.File />;
+    if (['md', 'txt', 'doc', 'docx', 'rtf'].includes(ext || '')) {
+      return <FileText size={18} />;
+    }
+    return <File size={18} />;
   };
 
   const getChangeIcon = (type: string) => {
     switch (type) {
-      case 'added': return <span style={{ color: '#22c55e' }}>+</span>;
-      case 'modified': return <span style={{ color: '#eab308' }}>~</span>;
-      case 'deleted': return <span style={{ color: '#ef4444' }}>-</span>;
-      default: return <span style={{ color: '#666' }}>?</span>;
+      case 'added': return <span style={{ color: '#22c55e', fontWeight: 'bold' }}>+</span>;
+      case 'modified': return <span style={{ color: '#eab308', fontWeight: 'bold' }}>~</span>;
+      case 'deleted': return <span style={{ color: '#ef4444', fontWeight: 'bold' }}>-</span>;
+      default: return null;
     }
   };
 
   return (
-    <div className="app">
-      {/* Header */}
-      <header className="header">
-        <div className="logo">
-          <div className="logo-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 2v6M12 16v6M2 12h6M16 12h6" />
-            </svg>
-          </div>
-          <span>AugmentedVCS</span>
+    <div className="explorer-app">
+      {/* ===== TITLE BAR ===== */}
+      <header className="title-bar">
+        <div className="title-left">
+          <div className="app-icon">AV</div>
+          <span className="app-title">AugmentedVCS</span>
         </div>
-        
-        <div className="header-center">
-          <div className="branch-selector">
-            <Icons.File />
-            <span>{status?.branch || 'main'}</span>
-            <Icons.Chevron />
-          </div>
-        </div>
-
-        <div className="header-right">
-          <button className="btn-icon" title="Sync">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 12a9 9 0 0 1-9 9m0 0a9 9 0 0 1-9-9m9 9V3m0 0l-4 4m4-4l4 4" />
-            </svg>
+        <div className="title-center">
+          <button className="nav-btn" onClick={goBack} disabled={historyIndex <= 0}>
+            <ArrowLeft size={16} />
           </button>
-          <button className="btn-icon" title="Settings">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
+          <button className="nav-btn" onClick={goForward} disabled={historyIndex >= history.length - 1}>
+            <ArrowRight size={16} />
+          </button>
+          <div className="path-bar">
+            <Home size={14} />
+            <span>{currentPath}</span>
+          </div>
+        </div>
+        <div className="title-right">
+          <button className="icon-btn" title="Settings">
+            <Settings size={18} />
           </button>
         </div>
       </header>
 
-      <div className="main-container">
-        {/* Left Panel - Commit Graph (GitKraken style) */}
-        <div className="graph-panel">
-          <div className="panel-header">
-            <span>Commits</span>
-            <button className="btn-icon-sm" title="Refresh" onClick={loadData}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                <path d="M21 3v5h-5" />
-              </svg>
+      {/* ===== MENU BAR ===== */}
+      <nav className="menu-bar">
+        <div className="menu-group">
+          <button className={`menu-btn ${viewMode === 'explorer' ? 'active' : ''}`} onClick={() => setViewMode('explorer')}>
+            📁 Explorer
+          </button>
+          <button className={`menu-btn ${viewMode === 'changes' ? 'active' : ''}`} onClick={() => setViewMode('changes')}>
+            🔄 Changes
+          </button>
+        </div>
+        <div className="menu-group">
+          <button className="menu-btn" onClick={handleAddAll}>
+            <Upload size={14} /> Add All
+          </button>
+          <button className="menu-btn primary" onClick={handleCommit} disabled={!commitMessage.trim()}>
+            <Save size={14} /> Save
+          </button>
+        </div>
+      </nav>
+
+      {/* ===== MAIN CONTENT ===== */}
+      <div className="main-content">
+        {/* ----- LEFT SIDEBAR: Folders ----- */}
+        <aside className="sidebar">
+          <div className="sidebar-header">
+            <span>Folders</span>
+            <button className="icon-btn-sm" title="Refresh">
+              <RefreshCw size={14} />
             </button>
           </div>
+          <div className="folder-list">
+            <div className="folder-item" onClick={() => navigateTo('/')}>
+              <Home size={16} />
+              <span>My Project</span>
+            </div>
+            <div className="folder-item" onClick={() => navigateTo('/src')}>
+              <FolderIcon size={16} />
+              <span>src</span>
+            </div>
+            <div className="folder-item" onClick={() => navigateTo('/docs')}>
+              <FolderIcon size={16} />
+              <span>docs</span>
+            </div>
+          </div>
           
-          <div className="graph-content">
-            {loading && <div className="loading"><Icons.Loading /></div>}
-            
-            {versions.length === 0 && !loading ? (
-              <div className="empty-state">
-                <p>No commits yet</p>
-                <p className="hint">Create your first commit</p>
+          <div className="sidebar-header">
+            <span>Recent Saves</span>
+          </div>
+          <div className="commit-list">
+            {commits.slice(0, 5).map(commit => (
+              <div key={commit.id} className="commit-preview" title={commit.message}>
+                <span className="commit-hash">{commit.id.slice(0, 6)}</span>
+                <span className="commit-msg">{commit.message}</span>
+              </div>
+            ))}
+            {commits.length === 0 && (
+              <div className="empty-text">No saves yet</div>
+            )}
+          </div>
+        </aside>
+
+        {/* ----- CENTER: FILE LIST ----- */}
+        <main className="file-area">
+          {/* Toolbar */}
+          <div className="toolbar">
+            <div className="toolbar-left">
+              <button className="tool-btn" title="Go Back">
+                <ArrowLeft size={16} />
+              </button>
+              <button className="tool-btn" title="Go Forward">
+                <ArrowRight size={16} />
+              </button>
+              <button className="tool-btn" title="Go Up">
+                <ChevronRight size={16} style={{ transform: 'rotate(270deg)' }} />
+              </button>
+            </div>
+            <div className="toolbar-center">
+              <div className="address-bar">
+                <Home size={14} />
+                <span>{currentPath}</span>
+              </div>
+            </div>
+            <div className="toolbar-right">
+              <button className="tool-btn" title="Search">
+                <Search size={16} />
+              </button>
+              <button className="tool-btn" title="Refresh" onClick={loadAll}>
+                <RefreshCw size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Column Headers */}
+          <div className="column-headers">
+            <div className="col-name">Name</div>
+            <div className="col-status">Status</div>
+            <div className="col-date">Date Modified</div>
+          </div>
+
+          {/* File List */}
+          <div className="file-list">
+            {viewMode === 'explorer' ? (
+              // Explorer view - show all changes as files
+              changes.length === 0 ? (
+                <div className="empty-folder">
+                  <FolderIcon size={48} />
+                  <p>This folder is empty</p>
+                  <p className="hint">Make some changes to your files and they'll appear here</p>
+                </div>
+              ) : (
+                changes.map(change => (
+                  <div 
+                    key={change.path}
+                    className={`file-row ${selectedItems.has(change.path) ? 'selected' : ''}`}
+                    onClick={(e) => handleMultiSelect(change.path, e)}
+                    onDoubleClick={() => setSelectedFile(change.path)}
+                  >
+                    <div className="col-name">
+                      {getFileIcon(change.path.split('/').pop() || '', 'file')}
+                      <span className="file-name">{change.path}</span>
+                    </div>
+                    <div className="col-status">
+                      {getChangeIcon(change.type)}
+                      <span className={`status-badge ${change.type}`}>{change.type}</span>
+                    </div>
+                    <div className="col-date">Today</div>
+                  </div>
+                ))
+              )
+            ) : (
+              // Changes view
+              changes.length === 0 ? (
+                <div className="empty-folder">
+                  <Check size={48} />
+                  <p>All saved!</p>
+                  <p className="hint">No pending changes</p>
+                </div>
+              ) : (
+                changes.map(change => (
+                  <div 
+                    key={change.path}
+                    className={`file-row ${selectedItems.has(change.path) ? 'selected' : ''}`}
+                    onClick={(e) => handleMultiSelect(change.path, e)}
+                  >
+                    <div className="col-name">
+                      {getChangeIcon(change.type)}
+                      {getFileIcon(change.path.split('/').pop() || '', 'file')}
+                      <span className="file-name">{change.path}</span>
+                    </div>
+                    <div className="col-status">
+                      <span className={`status-badge ${change.type}`}>{change.type}</span>
+                    </div>
+                    <div className="col-date">—</div>
+                  </div>
+                ))
+              )
+            )}
+          </div>
+        </main>
+
+        {/* ----- RIGHT PANEL: DETAILS & COMMIT ----- */}
+        <aside className="details-panel">
+          {/* Details Section */}
+          <div className="panel-section">
+            <div className="panel-header">Details</div>
+            {selectedFile ? (
+              <div className="detail-content">
+                <div className="detail-icon">
+                  {getFileIcon(selectedFile.split('/').pop() || '', 'file')}
+                </div>
+                <div className="detail-name">{selectedFile.split('/').pop()}</div>
+                <div className="detail-row">
+                  <span>Path:</span>
+                  <span>{selectedFile}</span>
+                </div>
+                <div className="detail-row">
+                  <span>Status:</span>
+                  <span className={`status-badge ${changes.find(c => c.path === selectedFile)?.type}`}>
+                    {changes.find(c => c.path === selectedFile)?.type || 'unchanged'}
+                  </span>
+                </div>
               </div>
             ) : (
-              <div className="commit-graph">
-                {/* Graph lines */}
-                <svg className="graph-lines" width="60" height="100%">
-                  <line x1="30" y1="0" x2="30" y2="100%" stroke="#333" strokeWidth="2" />
-                </svg>
-                
-                {/* Commits */}
-                <div className="commits-list">
-                  {versions.map((v) => (
-                    <div key={v.id} className="commit-item">
-                      <div className="commit-dot" />
-                      <div className="commit-info">
-                        <div className="commit-message">{v.message}</div>
-                        <div className="commit-meta">
-                          <span className="commit-hash">{v.id.slice(0, 7)}</span>
-                          <span className="commit-date">{new Date(v.created_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="detail-empty">
+                <p>Select a file to see details</p>
               </div>
             )}
           </div>
-        </div>
 
-        {/* Center Panel - Workspace */}
-        <div className="workspace-panel">
-          {/* Tabs */}
-          <div className="workspace-tabs">
-            <button className="tab active">Changes</button>
-            <button className="tab">Diff</button>
-            <button className="tab">Commit</button>
-          </div>
-
-          <div className="workspace-content">
-            {/* Stage All Button */}
-            <div className="stage-bar">
-              <button className="btn btn-primary" onClick={handleStageAll} disabled={loading}>
-                <Icons.Plus /> Stage All
-              </button>
-              <span className="stage-count">{changes.length} changes</span>
-            </div>
-
-            {/* Commit Form */}
-            <div className="commit-form-mini">
+          {/* Commit Section */}
+          <div className="panel-section commit-section">
+            <div className="panel-header">Save Your Changes</div>
+            <div className="commit-content">
               <textarea
                 className="commit-input"
-                placeholder="Commit message..."
+                placeholder="Describe what you changed..."
                 value={commitMessage}
                 onChange={(e) => setCommitMessage(e.target.value)}
               />
-              <div className="commit-actions">
+              
+              {suggestion && (
+                <div className="suggestion" onClick={() => setCommitMessage(suggestion)}>
+                  💡 {suggestion}
+                </div>
+              )}
+              
+              <div className="commit-buttons">
                 <button 
-                  className="btn btn-secondary btn-sm" 
+                  className="btn btn-secondary btn-sm"
                   onClick={handleSuggest}
-                  disabled={aiThinking || !changes.length}
+                  disabled={aiThinking || changes.length === 0}
                 >
-                  {aiThinking ? <Icons.Loading /> : null}
                   {aiThinking ? 'Thinking...' : 'Suggest'}
                 </button>
                 <button 
@@ -296,127 +385,18 @@ function App() {
                   onClick={handleCommit}
                   disabled={loading || !commitMessage.trim()}
                 >
-                  Commit
+                  <Save size={14} /> Save
                 </button>
               </div>
-              {suggestion && (
-                <div className="suggestion" onClick={() => setCommitMessage(suggestion)}>
-                  💡 {suggestion}
-                </div>
-              )}
-            </div>
-
-            {/* Files List - GitKraken style */}
-            <div className="files-list-mini">
-              <div className="files-header">
-                <span>Staged Files</span>
-              </div>
-              {changes.length === 0 ? (
-                <div className="empty-files">
-                  <p>No changes detected</p>
-                  <p className="hint">Edit some files and they'll appear here</p>
-                </div>
-              ) : (
-                changes.map(change => (
-                  <div 
-                    key={change.path} 
-                    className="file-item-mini"
-                    onClick={() => setSelectedFile(change.path)}
-                  >
-                    <span className="file-change-icon">{getChangeIcon(change.type)}</span>
-                    {getFileIcon(change.path)}
-                    <span className="file-name">{change.path}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Panel - File Explorer */}
-        <div className="explorer-panel">
-          <div className="panel-header">
-            <span>File Explorer</span>
-            <button className="btn-icon-sm" title="New File">
-              <Icons.Plus />
-            </button>
-          </div>
-
-          <div className="explorer-content">
-            {/* Quick Actions */}
-            <div className="explorer-actions">
-              <button className="action-btn" title="New File">
-                <Icons.Plus />
-              </button>
-              <button className="action-btn" title="Refresh">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                  <path d="M21 3v5h-5" />
-                </svg>
-              </button>
-            </div>
-
-            {/* File Tree */}
-            <div className="file-tree">
-              {fileTree.map(node => (
-                <div key={node.path} className="tree-node">
-                  <div className="tree-item" onClick={() => node.children && toggleFolder(node.path)}>
-                    {node.type === 'folder' ? (
-                      <>
-                        <span className="tree-toggle">
-                          {expandedFolders.has(node.path) ? <Icons.ChevronDown /> : <Icons.Chevron />}
-                        </span>
-                        {expandedFolders.has(node.path) ? <Icons.FolderOpen /> : <Icons.Folder />}
-                      </>
-                    ) : (
-                      <>
-                        <span className="tree-toggle" />
-                        {getFileIcon(node.name)}
-                      </>
-                    )}
-                    <span className="tree-name">{node.name}</span>
-                    {node.type === 'file' && (
-                      <span className="tree-status">
-                        {getChangeIcon(changes.find(c => c.path === node.path)?.type || '')}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {node.type === 'folder' && node.children && expandedFolders.has(node.path) && (
-                    <div className="tree-children">
-                      {node.children.map(child => (
-                        <div key={child.path} className="tree-node">
-                          <div className="tree-item">
-                            <span className="tree-toggle" />
-                            {getFileIcon(child.name)}
-                            <span className="tree-name">{child.name}</span>
-                            <span className="tree-status">
-                              {getChangeIcon(changes.find(c => c.path === child.path)?.type || '')}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
 
-          {/* File Details */}
-          {selectedFile && (
-            <div className="file-details">
-              <div className="details-header">
-                <span>{selectedFile.split('/').pop()}</span>
-                <button className="btn-icon-sm" onClick={() => setSelectedFile(null)}>×</button>
-              </div>
-              <div className="details-meta">
-                <span>Path: {selectedFile}</span>
-                <span>Status: {changes.find(c => c.path === selectedFile)?.type || 'unchanged'}</span>
-              </div>
-            </div>
-          )}
-        </div>
+          {/* Status Bar */}
+          <div className="status-bar">
+            <span>{changes.length} changes</span>
+            <span>{selectedItems.size} selected</span>
+          </div>
+        </aside>
       </div>
 
       {/* Error Toast */}
