@@ -85,3 +85,12 @@ config/local.yaml
 
 # pyenv
 .python-version
+
+# Frontend
+node_modules/
+package-lock.json
+dist/
+.rollup.cache/
+
+# Vite
+.vite/

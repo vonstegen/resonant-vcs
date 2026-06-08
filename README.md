@@ -2,56 +2,125 @@
 
 > **Version Control for Everyone — Built by AI, Managed by AI**
 
-[![Status: Planning](https://img.shields.io/badge/Status-Planning-yellow.svg)](#status)
+[![Status: Alpha](https://img.shields.io/badge/Status-Alpha-yellow.svg)](https://github.com/vonstegen/resonant-vcs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![DAO: ResonantDAO](https://img.shields.io/badge/DAO-ResonantDAO-green.svg)](https://resonantdao.com/)
+[![Python: 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
+[![Tests](https://img.shields.io/badge/Tests-20%20passing-green.svg)](#tests)
 
 **AugmentedVCS** is a next-generation Version Control System designed for both **experienced software developers** and **non-technical users**. Unlike traditional VCS tools, AugmentedVCS leverages AI to provide intuitive interfaces, intelligent content management, and seamless collaboration.
 
-## 🎯 What Makes It Different
+## ✨ What Makes It Different
 
 | Traditional VCS | AugmentedVCS |
 |----------------|--------------|
 | CLI-first, developer-centric | AI-guided UI for all skill levels |
 | Code-focused | Multi-content: notes, images, documents |
-| Manual conflict resolution | AI-mediated merge suggestions |
+| Manual conflict resolution | AI-mediated suggestions |
 | Steep learning curve | Natural language commands |
 
-## ✨ Key Features
+## 🚀 Quick Start
 
-### Three User Modes
+### Install
 
-1. **🟢 Simple Mode** — Point-and-click for non-technical users
-   - Drag-and-drop file management
-   - AI explains changes in plain language
-   - "Save this version", "Show me what changed"
+```bash
+pip install resonant-vcs
+```
 
-2. **🔵 Advanced Mode** — Git-like CLI for developers
-   - Familiar git commands + AI superpowers
-   - Smart branch naming, automated code review
-   - IDE plugins for VS Code, JetBrains
+### Initialize a Project
 
-3. **💬 AI CLI Mode** — Natural language terminal
-   - "I worked on the recipe notes today — save it"
-   - "Compare my notes from last week"
-   - "Create a branch for vacation planning"
+```bash
+mkdir my-project && cd my-project
+avcs init
+```
 
-### AI-Powered Features
+### Save Your First Version
 
-- **Smart Commits** — AI suggests meaningful commit messages
-- **Content Understanding** — Detects notes, images, code automatically
-- **Intelligent Diff** — Semantic comparison beyond text
-- **Conflict Resolution** — AI-mediated merge suggestions
-- **Version History** — Stories instead of cryptic hashes
+```bash
+echo "My shopping list" > notes.txt
+avcs add notes.txt
+avcs commit -m "Add initial notes"
+```
 
-### Multi-Content Support
+### View History
 
-| Content Type | Tracking | Diff |
-|--------------|----------|------|
-| Notes (Markdown, text) | Line-by-line | AI summarization |
-| Images (PNG, JPG, SVG) | Visual diff | Perceptual hashing |
-| Documents (PDF, DOCX) | Structure extraction | OCR comparison |
-| Code (any language) | Syntax-aware | AST diff |
+```bash
+avcs log
+```
+
+**That's it!** 🎉
+
+## 🖥️ Web UI
+
+For non-technical users, AugmentedVCS has a beautiful web interface:
+
+```bash
+# Terminal 1: Start API server
+avcs serve
+
+# Terminal 2: Start web UI
+npm run dev
+```
+
+Then open **http://localhost:3000** in your browser.
+
+![Web UI](docs/images/ui-screenshot.png)
+
+## 🤖 AI Features
+
+AugmentedVCS uses AI (via Ollama) to make version control accessible:
+
+### Smart Commit Messages
+```bash
+avcs suggest
+# Output: "Update shopping list with fresh items"
+```
+
+### Plain Language Explanations
+```bash
+avcs explain
+# Output: "You added 2 files and modified 1 file..."
+```
+
+### Story Mode
+```bash
+avcs story
+# Output: "Your project began on January 15th..."
+```
+
+### Natural Language Commands
+```bash
+avcs chat
+> save my changes
+> show me the history
+> create a new branch for vacation
+```
+
+## 📚 Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [Quick Start](docs/user-guides/QUICK-START.md) | Get started in 5 minutes |
+| [Installation](docs/user-guides/INSTALLATION.md) | Complete install instructions |
+| [CLI Reference](docs/user-guides/CLI-REFERENCE.md) | All CLI commands |
+| [Web UI Guide](docs/user-guides/WEB-UI.md) | Using the web interface |
+| [AI Features](docs/user-guides/AI-FEATURES.md) | AI-powered capabilities |
+| [Architecture](docs/developer/ARCHITECTURE.md) | Technical design |
+| [Developer Guide](docs/developer/DEVELOPER-GUIDE.md) | Contributing |
+| [API Reference](docs/api/API-REFERENCE.md) | REST API docs |
+
+## 🔧 CLI Commands
+
+```bash
+avcs init              # Initialize repository
+avcs add <files>       # Stage files
+avcs commit -m "msg"   # Create version
+avcs log               # View history
+avcs status            # Current status
+avcs branch            # List branches
+avcs checkout <ref>    # Switch versions
+avcs diff              # Show changes
+avcs ai "command"      # Natural language
+```
 
 ## 🏗️ Architecture
 
@@ -60,89 +129,44 @@
 │  User Interface (Simple/Advanced/AI CLI) │
 ├─────────────────────────────────────────┤
 │         AI Orchestration Layer          │
-│  (Intent Parser • Content Mgr • Merge)  │
+│  (Intent Parser • Features • Switcher)  │
 ├─────────────────────────────────────────┤
 │           Core VCS Engine               │
 │  (Branch • Commit • Merge • Diff)       │
 ├─────────────────────────────────────────┤
-│        Storage (SQLite + Qdrant)        │
-└─────────────────────────────────────────┘
-                   ↓
-┌─────────────────────────────────────────┐
-│       External Integrations             │
-│  (ResonantDAO • ResonantClaw • AI)      │
+│        Storage (SQLite + Files)         │
 └─────────────────────────────────────────┘
 ```
 
-## 🔗 Integrations
-
-### ResonantDAO
-Decentralized governance for project ownership, token-gated access, and community decisions.
-
-**Learn more:** [https://resonantdao.com/](https://resonantdao.com/)
-
-### ResonantClaw Hub
-Web portal for DAO tools, community dashboards, and project browsing.
-
-**Learn more:** [https://hub.resonantclaw.com/](https://hub.resonantclaw.com/)
-
-## 🚀 Getting Started
+## 🧪 Tests
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/AugmentedVCS.git
-cd AugmentedVCS
-
-# Install dependencies
-pip install -e .
-
-# Start the AI assistant
-python -m src.cli
-
-# Or start the web UI
-python -m src.api.main
+pytest
 ```
 
-## 📁 Project Structure
+**20 tests passing** with coverage:
+- Intent Classifier: 97%
+- Database: 89%
+- Repository: 83%
 
-```
-AugmentedVCS/
-├── src/
-│   ├── core/          # VCS engine
-│   ├── ai/            # AI orchestration
-│   ├── api/           # REST API
-│   ├── cli/           # Command line
-│   └── ui/            # Web interface
-├── docs/              # Documentation
-├── tests/             # Test suites
-└── config/            # Configuration
-```
+## 📦 Tech Stack
 
-## 📖 Documentation
-
-- [Project Specification](project.md) — Full project details
-- [Architecture](docs/architecture/) — Technical design
-- [User Guides](docs/user-guides/) — How to use
-- [API Reference](docs/api/) — Developer docs
-
-## 🛣️ Roadmap
-
-| Phase | Timeline | Focus |
-|-------|----------|-------|
-| Phase 1 | Weeks 1-4 | Core VCS engine |
-| Phase 2 | Weeks 5-8 | AI layer |
-| Phase 3 | Weeks 9-12 | User interfaces |
-| Phase 4 | Weeks 13-16 | DAO integration |
+| Layer | Technology |
+|-------|------------|
+| Backend | Python 3.11+, FastAPI |
+| Database | SQLite |
+| AI | Ollama (local) |
+| CLI | Click |
+| UI | React 18, TypeScript, Vite |
 
 ## 🤝 Contributing
 
-This project is governed by **ResonantDAO**. Contributors earn reputation through their contributions and can participate in governance decisions.
-
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing`)
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
+2. Create feature branch (`git checkout -b feature/amazing`)
+3. Make changes with tests
+4. Ensure tests pass (`pytest`)
+5. Update documentation
+6. Submit Pull Request
 
 ## 📜 License
 
@@ -151,12 +175,11 @@ MIT License — see [LICENSE](LICENSE) for details.
 ## 👥 Team
 
 - **Founder:** Andre VonStegen
-- **DAO Partner:** [ResonantDAO](https://resonantdao.com/)
+- **DAO:** [ResonantDAO](https://resonantdao.com/)
 - **Interface Partner:** [ResonantClaw](https://hub.resonantclaw.com/)
 
 ---
 
-**Status:** 🟡 Planning — Join us in building version control for everyone!
+**Status:** 🟡 Alpha — Ready for community testing!
 
-[![GitHub](https://img.shields.io/badge/GitHub-ResonantVCS-blue.svg)](https://github.com/vonstegen/resonant-vcs)
-[![Discord](https://img.shields.io/badge/Discord-Join-blue.svg)](https://discord.gg/resonantdao)
+[![GitHub](https://img.shields.io/badge/GitHub-vonstegen/resonant-vcs-blue.svg)](https://github.com/vonstegen/resonant-vcs)
