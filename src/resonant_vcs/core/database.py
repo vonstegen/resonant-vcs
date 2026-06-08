@@ -95,10 +95,19 @@ class Database:
         FOREIGN KEY (repo_id) REFERENCES repositories(id)
     );
 
+    CREATE TABLE IF NOT EXISTS version_files (
+        version_id TEXT NOT NULL,
+        path TEXT NOT NULL,
+        hash TEXT NOT NULL,
+        PRIMARY KEY (version_id, path),
+        FOREIGN KEY (version_id) REFERENCES versions(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_files_repo ON files(repo_id);
     CREATE INDEX IF NOT EXISTS idx_versions_repo ON versions(repo_id);
     CREATE INDEX IF NOT EXISTS idx_branches_repo ON branches(repo_id);
     CREATE INDEX IF NOT EXISTS idx_staged_repo ON staged_files(repo_id);
+    CREATE INDEX IF NOT EXISTS idx_version_files ON version_files(version_id);
     """
 
     def __init__(self, db_path: Path):
@@ -272,20 +281,29 @@ class Database:
     def get_files_at_version(self, version_id: str) -> list[FileReference]:
         """Get all files tracked at a specific version."""
         rows = self.conn.execute(
-            """SELECT f.* FROM files f
-               JOIN versions v ON f.repo_id = v.repo_id
-               WHERE v.id = ?""",
+            "SELECT * FROM version_files WHERE version_id = ?",
             (version_id,)
         ).fetchall()
+        repo = self.conn.execute("SELECT repo_id FROM versions WHERE id = ?", (version_id,)).fetchone()
+        repo_id = repo["repo_id"] if repo else ""
         return [
             FileReference(
-                id=row["id"],
-                repo_id=row["repo_id"],
+                id=str(uuid.uuid4()),
+                repo_id=repo_id,
                 path=row["path"],
                 hash=row["hash"]
             )
             for row in rows
         ]
+
+    def track_files_for_version(self, version_id: str, files: list[tuple[str, str]]) -> None:
+        """"Track which files were part of a version snapshot."""
+        for path, file_hash in files:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO version_files (version_id, path, hash) VALUES (?, ?, ?)",
+                (version_id, path, file_hash)
+            )
+        self.conn.commit()
 
     def track_file(self, repo_id: str, path: str, file_hash: str) -> None:
         """Track a file at the current version."""

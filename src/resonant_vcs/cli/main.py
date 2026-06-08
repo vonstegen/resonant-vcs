@@ -441,6 +441,93 @@ def ai(text: str):
         console.print(f"[red]✗ {result.get('message', 'Error')}[/red]")
 
 
+@cli.command()
+@click.option("--global", "global_config", is_flag=True, help="Set global config")
+@click.argument("key", required=False)
+@click.argument("value", required=False)
+def config(global_config: bool, key: str | None, value: str | None):
+    """Get or set configuration."""
+    from ..utils.config import get_config, config_help
+    
+    if not key:
+        # Show all config
+        repo = get_repo() if not global_config else None
+        cfg = get_config(repo.path if repo else None)
+        
+        console.print("\n[bold]Global Configuration:[/bold]")
+        console.print(f"  user.name: {cfg.global_config.name}")
+        console.print(f"  user.email: {cfg.global_config.email or '(not set)'}")
+        console.print(f"  ai.provider: {cfg.global_config.ai_provider}")
+        console.print(f"  ai.model: {cfg.global_config.ai_model}")
+        console.print(f"  ai.base_url: {cfg.global_config.ai_base_url}")
+        console.print(f"  default_branch: {cfg.global_config.default_branch}")
+        
+        if cfg.repo_config:
+            console.print("\n[bold]Repository Configuration:[/bold]")
+            console.print(f"  description: {cfg.repo_config.description or '(not set)'}")
+            console.print(f"  author: {cfg.repo_config.author or '(inherit global)'}")
+        return
+    
+    if not value:
+        # Show specific key
+        cfg = get_config()
+        config_map = {
+            "user.name": cfg.global_config.name,
+            "user.email": cfg.global_config.email,
+            "ai.provider": cfg.global_config.ai_provider,
+            "ai.model": cfg.global_config.ai_model,
+            "ai.base_url": cfg.global_config.ai_base_url,
+            "default_branch": cfg.global_config.default_branch,
+        }
+        if key in config_map:
+            console.print(config_map[key])
+        else:
+            console.print(f"[yellow]Unknown config key: {key}[/yellow]")
+        return
+    
+    # Set value
+    cfg = get_config()
+    
+    if key == "user.name":
+        cfg.set_user_name(value)
+    elif key == "user.email":
+        cfg.set_user_email(value)
+    elif key == "ai.model":
+        cfg.set_ai_model(value)
+    elif key == "ai.base_url":
+        cfg.set_ai_base_url(value)
+    else:
+        console.print(f"[yellow]Cannot set {key} directly. Use specific setter.[/yellow]")
+        return
+    
+    console.print(f"[green]Set {key} = {value}[/green]")
+
+
+@cli.command()
+@click.option("-s", "--shell", "shell", default=None, help="Shell type (bash, zsh, fish)")
+def completions(shell: str | None):
+    """Install shell completions."""
+    from .completions import install_completions
+    
+    if install_completions(shell):
+        console.print("[green]Shell completions installed![/green]")
+    else:
+        console.print("[red]Failed to install completions[/red]")
+
+
+@cli.command()
+@click.option("--host", default="127.0.0.1", help="Host to bind to")
+@click.option("-p", "--port", default=8000, help="Port to listen on")
+def serve(host: str, port: int):
+    """Start the API server."""
+    import uvicorn
+    from ..api.main import app
+    
+    console.print(f"[green]Starting API server on {host}:{port}[/green]")
+    console.print(f"[dim]Docs available at http://{host}:{port}/docs[/dim]")
+    uvicorn.run(app, host=host, port=port)
+
+
 # Export the cli group as the main command
 main = cli
 

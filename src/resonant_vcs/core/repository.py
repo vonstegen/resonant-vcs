@@ -106,7 +106,8 @@ class Repository:
 
         # Find modified and new files
         staged_paths = {p for p, _ in staged}
-        tracked_paths = {p for p, _ in tracked}
+        tracked_dict = {f.path: f.hash for f in tracked}
+        tracked_paths = set(tracked_dict.keys())
 
         modified = []
         new_staged = []
@@ -115,15 +116,13 @@ class Repository:
         # Check staged files against tracked
         for path, file_hash in staged:
             if path in tracked_paths:
-                # Find old hash
-                old_hash = next(h for p, h in tracked if p == path)
-                if file_hash != old_hash:
+                if file_hash != tracked_dict[path]:
                     modified.append(path)
             else:
                 new_staged.append(path)
 
         # Find deleted files
-        for path, _ in tracked:
+        for path in tracked_paths:
             if path not in staged_paths:
                 deleted.append(path)
 
@@ -156,9 +155,12 @@ class Repository:
         # Create version
         version = self.db.create_version(repo.id, message, parent_id, author)
 
-        # Track all staged files
+        # Track all staged files (both for the repo and for this version)
         for path, file_hash in staged:
             self.db.track_file(repo.id, path, file_hash)
+        
+        # Track files for this specific version snapshot
+        self.db.track_files_for_version(version.id, staged)
 
         # Update branch head
         self.db.update_branch_head(current_branch, repo.id, version.id)
