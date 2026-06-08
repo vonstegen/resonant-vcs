@@ -36,7 +36,7 @@ class ConfigManager:
 
     GLOBAL_CONFIG_DIR = Path.home() / ".config" / "avcs"
     GLOBAL_CONFIG_FILE = GLOBAL_CONFIG_DIR / "config.json"
-    REPO_CONFIG_FILE = ".avcs" / "config.json"
+    REPO_CONFIG_FILE = Path(".avcs") / "config.json"
 
     def __init__(self, repo_path: Optional[Path] = None):
         self.repo_path = repo_path

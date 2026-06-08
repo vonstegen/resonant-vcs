@@ -73,7 +73,7 @@ def add(files: tuple[str], all_files: bool):
         # Stage all files in directory
         repo_path = repo.path
         for f in repo_path.rglob("*"):
-            if f.is_file() and not f.is_hidden() and ".avcs" not in f.parts:
+            if f.is_file() and not f.name.startswith('.') and ".avcs" not in f.parts:
                 try:
                     repo.add(f)
                     console.print(f"[dim]Staged: {f.relative_to(repo_path)}[/dim]")
