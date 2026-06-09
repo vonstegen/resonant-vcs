@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   Home, Folder as FolderIcon, FolderOpen as FolderOpenIcon, 
   File, FileText, Save, ChevronRight, RefreshCw, Upload, 
-  ArrowLeft, ArrowRight, Search, Settings, Check, FolderInput
+  Search, Settings, Check, FolderInput
 } from 'lucide-react';
 import { api, Version, Change, FileItem } from './api';
 
@@ -22,8 +22,6 @@ function App() {
   const [aiThinking, setAiThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState('/');
-  const [history, setHistory] = useState<string[]>(['/']);
-  const [historyIndex, setHistoryIndex] = useState(0);
   const [showPathInput, setShowPathInput] = useState(false);
   const [tempPath, setTempPath] = useState('');
 
@@ -104,28 +102,6 @@ function App() {
     }
   };
 
-  const goBack = () => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      setCurrentPath(history[newIndex]);
-    }
-  };
-
-  const goForward = () => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      setCurrentPath(history[newIndex]);
-    }
-  };
-
-  const navigateTo = (path: string) => {
-    setCurrentPath(path);
-    setHistory(prev => [...prev.slice(0, historyIndex + 1), path]);
-    setHistoryIndex(prev => prev + 1);
-  };
-
   const getFileIcon = (name: string, type: 'file' | 'folder', expanded?: boolean) => {
     if (type === 'folder') {
       return expanded ? <FolderOpenIcon size={18} /> : <FolderIcon size={18} />;
@@ -155,12 +131,6 @@ function App() {
           <span className="app-title">AugmentedVCS</span>
         </div>
         <div className="title-center">
-          <button className="nav-btn" onClick={goBack} disabled={historyIndex <= 0}>
-            <ArrowLeft size={16} />
-          </button>
-          <button className="nav-btn" onClick={goForward} disabled={historyIndex >= history.length - 1}>
-            <ArrowRight size={16} />
-          </button>
           <button className="folder-btn" onClick={() => { setTempPath(repoPath); setShowPathInput(true); }} title="Change Repository">
             <FolderInput size={14} />
           </button>
@@ -202,23 +172,30 @@ function App() {
         <aside className="sidebar">
           <div className="sidebar-header">
             <span>Folders</span>
-            <button className="icon-btn-sm" title="Refresh">
+            <button className="icon-btn-sm" title="Refresh" onClick={loadAll}>
               <RefreshCw size={14} />
             </button>
           </div>
           <div className="folder-list">
-            <div className="folder-item" onClick={() => navigateTo('/')}>
+            {/* My Project - root */}
+            <div className="folder-item" onClick={() => setCurrentPath('/')}>
               <Home size={16} />
               <span>My Project</span>
             </div>
-            <div className="folder-item" onClick={() => navigateTo('/src')}>
-              <FolderIcon size={16} />
-              <span>src</span>
-            </div>
-            <div className="folder-item" onClick={() => navigateTo('/docs')}>
-              <FolderIcon size={16} />
-              <span>docs</span>
-            </div>
+            {/* Show folders from repository */}
+            {files.filter(f => f.type === 'folder').map(folder => (
+              <div 
+                key={folder.path} 
+                className="folder-item"
+                onClick={() => setCurrentPath(folder.path)}
+              >
+                <FolderIcon size={16} />
+                <span>{folder.name}</span>
+              </div>
+            ))}
+            {files.filter(f => f.type === 'folder').length === 0 && (
+              <div className="empty-text">No folders</div>
+            )}
           </div>
           
           <div className="sidebar-header">
@@ -242,12 +219,6 @@ function App() {
           {/* Toolbar */}
           <div className="toolbar">
             <div className="toolbar-left">
-              <button className="tool-btn" title="Go Back">
-                <ArrowLeft size={16} />
-              </button>
-              <button className="tool-btn" title="Go Forward">
-                <ArrowRight size={16} />
-              </button>
               <button className="tool-btn" title="Go Up">
                 <ChevronRight size={16} style={{ transform: 'rotate(270deg)' }} />
               </button>
@@ -255,7 +226,7 @@ function App() {
             <div className="toolbar-center">
               <div className="address-bar">
                 <Home size={14} />
-                <span>{currentPath}</span>
+                <span>{repoPath.split('/').pop()}{currentPath !== '/' ? currentPath : ''}</span>
               </div>
             </div>
             <div className="toolbar-right">
